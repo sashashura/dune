@@ -4,6 +4,9 @@
 - Make `dune describe` correctly handle overlapping implementations
   for virtual libraries (#5971, fixes #5747, @esope)
 
+- Introduce a `$ dune ocaml top-module` subcommand to load modules directly
+  without sealing them behind the signature. (#5940, @rgrinberg)
+
 - Building the `@check` alias should make sure the libraries and executables
   don't have dependency cycles (#5892, @rgrinberg)
 
