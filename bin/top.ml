@@ -87,7 +87,7 @@ module Module = struct
         "The module's source is evaluated in the toplevel without being sealed \
          by the mli."
     ; `P
-        {|The output of $(b,dune toplevel-init-file) should be evaluated in a toplevel
+        {|The output of $(b,dune ocaml top-module) should be evaluated in a toplevel
           to make the module available there.|}
     ; `Blocks Common.help_secs
     ]
@@ -117,7 +117,8 @@ module Module = struct
     let* ocaml = Dune_rules.Dir_contents.ocaml dir_contents in
     let stanza =
       match Dune_rules.Ml_sources.lookup_stanza_module ocaml module_name with
-      | None -> User_error.raise [ Pp.text "" ]
+      | None ->
+        User_error.raise [ Pp.text "Could not find corresponding stanza" ]
       | Some m -> m
     in
     let* scope = Dune_rules.Scope.DB.find_by_dir dir in
@@ -172,7 +173,8 @@ module Module = struct
          the easiest way to do it
       *)
       match Dune_rules.Module.file module_ ~ml_kind:Impl with
-      | None -> User_error.raise [ Pp.text "" ]
+      | None ->
+        User_error.raise [ Pp.text "Could not find module implementation" ]
       | Some f ->
         fun () ->
           let+ (_ : Digest.t) = Build_system.build_file f in
@@ -230,7 +232,7 @@ module Module = struct
     and+ module_path =
       Arg.(value & pos 0 string "" & Arg.info [] ~docv:"MODULE")
     and+ ctx_name =
-      Common.context_arg ~doc:{|Select context where to build/run utop.|}
+      Common.context_arg ~doc:{|Select context where to create instructions.|}
     in
     let config = Common.init common in
     Scheduler.go ~common ~config (fun () ->
