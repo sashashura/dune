@@ -4,26 +4,26 @@ open Import
 
 (* CR-someday amokhov: Implement garbage collection. *)
 
-type 'a t =
+type ('a, 'path) t =
   { name : string (* For debugging *)
-  ; sample : Path.t -> 'a
-  ; cache : 'a Path.Table.t
+  ; sample : 'path -> 'a
+  ; cache : ('path, 'a) Table.t
   ; equal : 'a -> 'a -> bool (* Used to implement cutoff *)
-  ; update_hook : Path.t -> unit (* Run this hook before updating an entry. *)
+  ; update_hook : 'path -> unit (* Run this hook before updating an entry. *)
   }
 
 let create ?(update_hook = fun _path -> ()) name ~sample ~equal =
-  { name; sample; equal; cache = Path.Table.create 128; update_hook }
+  { name; sample; equal; cache = Table.create (module Path) 128; update_hook }
 
 let read { sample; cache; _ } path =
-  match Path.Table.find cache path with
+  match Table.find cache path with
   | Some cached_result -> cached_result
   | None ->
     let result = sample path in
-    Path.Table.add_exn cache path result;
+    Table.add_exn cache path result;
     result
 
-let evict { cache; _ } path = Path.Table.remove cache path
+let evict { cache; _ } path = Table.remove cache path
 
 module Update_result = struct
   type t =
@@ -45,7 +45,7 @@ module Update_result = struct
 end
 
 let update { sample; cache; equal; update_hook; _ } path =
-  match Path.Table.find cache path with
+  match Table.find cache path with
   | None -> Update_result.Skipped
   | Some old_result -> (
     update_hook path;
@@ -53,7 +53,7 @@ let update { sample; cache; equal; update_hook; _ } path =
     match equal old_result new_result with
     | true -> Updated { changed = false }
     | false ->
-      Path.Table.set cache path new_result;
+      Table.set cache path new_result;
       Updated { changed = true })
 
 module Reduced_stats = struct

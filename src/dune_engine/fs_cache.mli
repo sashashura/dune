@@ -5,15 +5,16 @@ open Import
 
     Currently we do not expose a way to construct such cached operations; see
     the [Untracked] module for a few predefined ones. *)
-type 'a t
+type ('a, 'path) t
 
 (** If the cache contains the result of applying an operation to a path, return
     it. Otherwise, perform the operation, store the result in the cache, and
     then return it. *)
-val read : 'a t -> Path.t -> 'a
+val read : ('a, 'p) t -> 'p -> 'a
 
 (** Evict an entry from the cache. *)
-val evict : 'a t -> Path.t -> unit
+
+val evict : ('a, 'p) t -> 'p -> unit
 
 (** Result of updating a cache entry. *)
 module Update_result : sig
@@ -30,7 +31,7 @@ module Update_result : sig
 end
 
 (** Perform an operation and update the result stored in the cache. *)
-val update : 'a t -> Path.t -> Update_result.t
+val update : ('a, 'p) t -> 'p -> Update_result.t
 
 (** This module caches only a subset of fields of [Unix.stats] because other
     fields are currently unused.
@@ -67,14 +68,14 @@ end
 
     See [fs_memo.ml] for tracked versions of these operations. *)
 module Untracked : sig
-  val path_stat : (Reduced_stats.t, Unix_error.Detailed.t) result t
+  val path_stat : ((Reduced_stats.t, Unix_error.Detailed.t) result, Path.t) t
 
-  val file_digest : Cached_digest.Digest_result.t t
+  val file_digest : (Cached_digest.Digest_result.t, Path.t) t
 
-  val dir_contents : (Dir_contents.t, Unix_error.Detailed.t) result t
+  val dir_contents : ((Dir_contents.t, Unix_error.Detailed.t) result, Path.t) t
 end
 
 module Debug : sig
   (** The name of a cached operation. *)
-  val name : 'a t -> string
+  val name : (_, _) t -> string
 end
