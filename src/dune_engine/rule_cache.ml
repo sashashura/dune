@@ -353,7 +353,8 @@ module Shared = struct
         User_warning.emit [ pp_error (Sexp.to_string sexp) ];
         None)
 
-  let compute_target_digests_or_raise_error exec_params ~loc ~produced_targets :
+  let compute_target_digests_or_raise_error exec_params ~loc
+      ~(produced_targets : unit Targets.Produced.t) :
       Digest.t Targets.Produced.t =
     let compute_digest =
       (* Remove write permissions on targets. A first theoretical reason is that
@@ -371,11 +372,20 @@ module Shared = struct
       Cached_digest.refresh ~allow_dirs:true ~remove_write_permissions
     in
     match
+      let () =
+        produced_targets.dirs
+        |> Path.Build.Map.iteri ~f:(fun dir _ ->
+               match
+                 Cached_digest.Digest_result.to_option (compute_digest dir)
+               with
+               | None -> raise_notrace Exit
+               | Some _ -> ())
+      in
       Targets.Produced.Option.mapi produced_targets ~f:(fun target () ->
           compute_digest target |> Cached_digest.Digest_result.to_option)
     with
     | Some result -> result
-    | None -> (
+    | (exception Exit) | None -> (
       let missing, errors =
         let process_target target (missing, errors) =
           let expected_syscall_path = Path.to_string (Path.build target) in
