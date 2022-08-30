@@ -1,5 +1,8 @@
 open Stdune
 
+let dummy_loc : Ocamlc_loc.loc =
+  { chars = None; lines = Single 1; path = "_unknown_" }
+
 let cmd fmt =
   Printf.ksprintf
     (fun s ->
@@ -163,6 +166,11 @@ let%expect_test "mli mismatch" =
 let test_error raw_error =
   String.trim raw_error |> Ocamlc_loc.parse |> Test.print_errors
 
+let test_error_with_initial_loc loc raw_error =
+  String.trim raw_error
+  |> Ocamlc_loc.parse_with_initial_loc loc
+  |> Test.print_errors
+
 let%expect_test "ml mli mismatch 2" =
   test_error
     {|
@@ -288,6 +296,20 @@ Error: Some record fields are undefined: signal_watcher
         ; line = Range 6,10
         ; chars = Some (2, 3)
         }
+    ; message = "Some record fields are undefined: signal_watcher"
+    ; related = []
+    ; severity = Error None
+    } |}]
+
+let%expect_test "undefined fields" =
+  test_error_with_initial_loc dummy_loc
+    {|
+Error: Some record fields are undefined: signal_watcher
+|};
+  [%expect
+    {|
+    >> error 0
+    { loc = { path = "_unknown_"; line = Single 1; chars = None }
     ; message = "Some record fields are undefined: signal_watcher"
     ; related = []
     ; severity = Error None

@@ -31,4 +31,6 @@ type report =
 
 val dyn_of_report : report -> Dyn.t
 
+val parse_with_initial_loc : loc -> string -> report list
+
 val parse : string -> report list

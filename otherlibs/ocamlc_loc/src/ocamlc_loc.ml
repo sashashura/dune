@@ -50,6 +50,8 @@ module Tokens : sig
   val junk : t -> unit
 
   val next : t -> Lexer.token
+
+  val push : t -> Lexer.token -> unit
 end = struct
   type t =
     { lexbuf : Lexing.lexbuf
@@ -65,6 +67,8 @@ end = struct
       t.unread <- xs;
       x
 
+  let push t token = t.unread <- token :: t.unread
+
   let peek t =
     match t.unread with
     | x :: _ -> x
@@ -79,28 +83,29 @@ end = struct
     | _ -> ignore (Lexer.token t.lexbuf)
 end
 
-let parse lexbuf =
-  let tokens = Tokens.create lexbuf in
-  let rec acc_message min_indent acc =
-    match Tokens.peek tokens with
-    | Line line ->
-      Tokens.junk tokens;
-      let min_indent = min min_indent line.indent in
-      acc_message min_indent (line :: acc)
-    | _ ->
-      List.rev_map acc ~f:(fun { indent; contents } ->
-          let prefix = String.make (indent - min_indent) ' ' in
-          prefix ^ contents)
-      |> String.concat "\n" |> String.trim
-  in
-  let rec related acc =
-    match Tokens.peek tokens with
-    | Related { indent; loc; message } ->
-      Tokens.junk tokens;
-      let message = acc_message indent [ { indent; contents = message } ] in
-      related ((loc, message) :: acc)
-    | _ -> List.rev acc
-  in
+let rec acc_message tokens min_indent acc =
+  match Tokens.peek tokens with
+  | Line line ->
+    Tokens.junk tokens;
+    let min_indent = min min_indent line.indent in
+    acc_message tokens min_indent (line :: acc)
+  | _ ->
+    List.rev_map acc ~f:(fun { indent; contents } ->
+        let prefix = String.make (indent - min_indent) ' ' in
+        prefix ^ contents)
+    |> String.concat "\n" |> String.trim
+
+let rec related tokens acc =
+  match Tokens.peek tokens with
+  | Related { indent; loc; message } ->
+    Tokens.junk tokens;
+    let message =
+      acc_message tokens indent [ { indent; contents = message } ]
+    in
+    related tokens ((loc, message) :: acc)
+  | _ -> List.rev acc
+
+let gen_parse tokens =
   let rec toplevel acc =
     match Tokens.next tokens with
     | Toplevel { indent; loc; severity; message } ->
@@ -112,9 +117,9 @@ let parse lexbuf =
           | Error _ -> String.length "Error: "
           | Warning _ -> String.length "Warning: "
         in
-        acc_message indent [ { indent; contents = message } ]
+        acc_message tokens indent [ { indent; contents = message } ]
       in
-      let related = related [] in
+      let related = related tokens [] in
       let acc = { severity; loc; message; related } :: acc in
       toplevel acc
     | Eof -> acc
@@ -122,4 +127,16 @@ let parse lexbuf =
   in
   try List.rev @@ toplevel [] with Unknown_format -> []
 
-let parse s = parse (Lexing.from_string s)
+let parse s =
+  let lexbuf = Lexing.from_string s in
+  let tokens = Tokens.create lexbuf in
+  gen_parse tokens
+
+let parse_with_initial_loc loc s =
+  let lexbuf = Lexing.from_string s in
+  let tokens = Tokens.create lexbuf in
+  match Lexer.with_initial_loc loc lexbuf with
+  | exception Unknown_format -> []
+  | token ->
+    Tokens.push tokens token;
+    gen_parse tokens

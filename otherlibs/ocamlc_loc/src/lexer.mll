@@ -125,3 +125,11 @@ and token = parse
     }
   | eof { Eof }
   | "" { line lexbuf }
+
+{
+  let with_initial_loc loc lexbuf =
+    skip_excerpt lexbuf;
+    let severity = severity lexbuf in
+    let message = toplevel_message lexbuf in
+    Toplevel { loc ; indent = 0 ; severity ; message }
+}

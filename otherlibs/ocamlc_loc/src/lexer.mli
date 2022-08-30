@@ -42,3 +42,5 @@ type token =
   | Eof
 
 val token : Lexing.lexbuf -> token
+
+val with_initial_loc : loc -> Lexing.lexbuf -> token
